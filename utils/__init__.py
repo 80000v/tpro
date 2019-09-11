@@ -1,36 +1,45 @@
-#!/usr/bin/env python
-# -*- coding:UTF-8 -*-
-# AUTHOR: freemoses
-# DATE: 2019/08/24 周六
-# TIME: 03:42:12
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
 
-# DESCRIPTION: the folder for general functions
+'''
+@Author: freemoses
+@Since: 2019-08-23 14:07:36
+@LastEditTime: 2019-09-10 06:45:40
+@Description: the folder for general functions
+'''
 
 import json
 import os
 import traceback
 
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QFont, QIcon
+
+BASIC_FONT = QFont(u'微软雅黑', 11)
 
 # 图标及JSON配置路径字典（全局变量）
-ICONS = {}
-JSONS = {}
+Icon_Map = {}
+Json_Map = {}
+Qss_Map = {}
 
 # 遍历安装目录
 for root, subdirs, files in os.walk(os.path.abspath(os.path.dirname(__file__))):
     for filename in files:
         if '.ico' in filename or '.png' in filename:
-            ICONS[filename] = os.path.join(root, filename)
+            Icon_Map[filename] = os.path.join(root, filename)
         if '.json' in filename:
-            JSONS[filename] = os.path.join(root, filename)
+            Json_Map[filename] = os.path.join(root, filename)
+        if '.qss' in filename:
+            Qss_Map[filename] = os.path.join(root, filename)
 
 # 遍历工作目录
 for root, subdirs, files in os.walk(os.getcwd()):
     for filename in files:
         if '.ico' in filename or '.png' in filename:
-            ICONS[filename] = os.path.join(root, filename)
+            Icon_Map[filename] = os.path.join(root, filename)
         if '.json' in filename:
-            JSONS[filename] = os.path.join(root, filename)
+            Json_Map[filename] = os.path.join(root, filename)
+        if '.qss' in filename:
+            Qss_Map[filename] = os.path.join(root, filename)
 
 
 # ----------------------------------------------------------------------
@@ -38,37 +47,55 @@ def load_icon(icon_name: str):
     """
     Get QIcon object with ico name
     """
-    return QIcon(ICONS.get(icon_name, ''))
+    return QIcon(Icon_Map.get(icon_name, ''))
 
 
 # ----------------------------------------------------------------------
-def load_json(file: str):
+def load_json(file_name: str, sub_item: str = None):
     """
-    Load data from json file
+    Load data from json file, you can select one of the subitems
     """
-    file_path = JSONS.get(file, '')
+    file_path = Json_Map.get(file_name, '')
 
     try:
         with open(file_path, mode='r', encoding='UTF-8') as f:
             data = json.load(f)
-        return data
+
+        if sub_item is None:
+            return data
+
+        return data.get(sub_item, {})
     except:
         traceback.print_exc()
 
 
 # ----------------------------------------------------------------------
-def save_json(file: str, data: dict):
+def save_json(file_name: str, data: dict, sub_item: str = None):
     """
-    Save data into json file
+    Save data into json file, you can specify one of the subitems
     """
-    file_path = JSONS.get(file, '')
+    if sub_item is None:
+        full_data = data
+    else:
+        full_data = load_json(file_name)
+        full_data[sub_item] = data
+
+    file_path = Json_Map.get(file_name, '')
 
     with open(file_path, mode='w+', encoding='UTF-8') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 
 # ----------------------------------------------------------------------
-def get_temp_file(file: str):
+def load_qss(file_name: str):
+    """
+    Get Qss file absolutely path
+    """
+    return Qss_Map.get(file_name, '')
+
+
+# ----------------------------------------------------------------------
+def get_temp_file(file_name: str):
     """
     Get path for temp file with filename
     """
@@ -76,4 +103,4 @@ def get_temp_file(file: str):
     if not os.path.exists(temp_path):
         os.makedirs(temp_path)
 
-    return os.path.join(temp_path, file)
+    return os.path.join(temp_path, file_name)

@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+# Python
+*.json
+*.pyc
+/__pycache__
+
 # Distribution / packaging
 .Python
 build/
@@ -24,6 +29,9 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Personal setting file
+*.json
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
