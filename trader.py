@@ -4,8 +4,9 @@
 '''
 @Author: freemoses
 @Since: 2019-08-23 13:47:06
-@LastEditTime: 2019-09-11 19:13:30
+@LastEditTime: 2019-09-11 19:17:50
 @Description: Main entry for Trader Pro system
+更改当前描述文件，测试Git配置
 '''
 
 import platform
