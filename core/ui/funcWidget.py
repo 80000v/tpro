@@ -4,7 +4,7 @@
 '''
 @Author: freemoses
 @Since: 2019-09-07 18:00:30
-@LastEditTime: 2019-09-10 06:58:35
+@LastEditTime: 2019-09-14 13:41:05
 @Description: 自定义系统功能模块
 '''
 
@@ -14,9 +14,8 @@ import qtawesome
 from PyQt5 import QtCore, QtWidgets
 
 from tpro.api.mongo import MongoApi
-from tpro.core.ui.baseWidget import (AccountTable, BacktestTable, PaperTradingTable, RealTradingTable, StrategyTable)
-
-# from bson.objectid import ObjectId
+from tpro.core.ui.baseWidget import (AccountTable, BacktestTable, PaperTradingTable, RealTradingTable, StrategyTable,
+                                     NewStrategy, NewRealTrading, NewAccount)
 
 
 ########################################################################
@@ -110,11 +109,13 @@ Tab_Type = {
 }
 
 
-class TableFrame(QtWidgets.QWidget):
+class TableFrame(QtWidgets.QFrame):
     """
-    自定义表格组件，包含搜索、新建、删除功能
+    自定义表格页面，包含搜索、新建、删除功能
     """
     open_tab_signal = QtCore.pyqtSignal(str, str, dict)
+
+    dialog_type = {'my_strategy': NewStrategy, 'real_trading': NewRealTrading, 'funds_account': NewAccount}
 
     def __init__(self, source: str = None, parent: Any = None):
         super(TableFrame, self).__init__(parent)
@@ -122,7 +123,7 @@ class TableFrame(QtWidgets.QWidget):
         self._source = source if source else 'my_strategy'
 
         _tbl = Tab_Type[self._source][1]
-        self._table = _tbl()
+        self._table = _tbl(self)
 
         self.init_ui()
 
@@ -130,20 +131,24 @@ class TableFrame(QtWidgets.QWidget):
         """
         初始化用户界面
         """
+        self.setStyleSheet(
+            "QHeaderView::section{background-color: transparent;font-size: 13px;font-weight: bold;padding-left: 4px;border: 0px;}"
+        )
+
         self._filter = QtWidgets.QLineEdit()
         self._filter.addAction(qtawesome.icon('fa5s.search', color='white'), self._filter.TrailingPosition)
         self._filter.textChanged.connect(self.filter_record)
 
         self._new_btn = QtWidgets.QPushButton(qtawesome.icon('fa5s.plus', color='white'), '')
-        self._new_btn.clicked.connect(self.new_record)
+        self._new_btn.clicked.connect(self.new_dialog)
 
         self._save_btn = QtWidgets.QPushButton(qtawesome.icon('fa5s.download', color='white'), '')
-        self._save_btn.clicked.connect(self.save_record)
+        self._save_btn.clicked.connect(self.save_records)
 
         self._table.set_datas(self._db.query('tpro', self._source))
 
         top_lyt = QtWidgets.QHBoxLayout()
-        top_lyt.addStretch()
+        top_lyt.addStretch(1)
         top_lyt.addWidget(self._filter)
         top_lyt.addWidget(self._new_btn)
         top_lyt.addWidget(self._save_btn)
@@ -162,9 +167,10 @@ class TableFrame(QtWidgets.QWidget):
         _tbl = Tab_Type[self._source][1]
         _datas = self._db.query('tpro', self._source)
 
-        self._table = _tbl()
+        self._table = _tbl(self)
         self._table.set_datas(_datas)
         self.layout().addWidget(self._table)
+        self._filter.clear()
 
     @property
     def source(self):
@@ -184,19 +190,37 @@ class TableFrame(QtWidgets.QWidget):
         """
         self._table.set_datas(self._db.query('tpro', self._source, flt={'name': {'$regex': key}}))
 
-    def new_record(self, data: dict):
+    def new_dialog(self):
         """
         新建记录，并回显至表格
         """
-        _id = self._db.insert('tpro', self._source, data)
-        data['_id'] = _id
-        self._table.insert_new_row(data, 'bottom')
+        _dialog = self.dialog_type[self._source]()
+        _dialog.ok_signal.connect(self.add_record)
+        _dialog.exec_()
 
-    def save_record(self):
+    def add_record(self, data: dict, index: str):
+        _id = self._db.insert('tpro', self._source, data, index)
+        if _id:
+            data['_id'] = _id
+            self._table.insert_new_row(data, 'bottom')
+
+    def save_records(self):
         """
         保存当前表格数据
         """
         self._table.save_csv()
+
+    def perform_operate(self, data: dict, flt: dict, opt: str):
+        """
+        Save operate result
+        """
+        if opt == 'update':
+            self._db.update('tpro', self._source, data, flt)
+            return
+
+        if opt == 'delete':
+            self._db.delete('tpro', self._source, flt)
+            return
 
 
 class TabWidget(QtWidgets.QTabWidget):

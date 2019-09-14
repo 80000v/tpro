@@ -4,9 +4,8 @@
 '''
 @Author: freemoses
 @Since: 2019-08-23 13:47:06
-@LastEditTime: 2019-09-11 19:17:50
+@LastEditTime: 2019-09-14 13:44:06
 @Description: Main entry for Trader Pro system
-更改当前描述文件，测试Git配置
 '''
 
 import platform
@@ -33,6 +32,8 @@ class MainWindow(QWidget):
     def init_ui(self):
         """初始化用户界面"""
         self.setWindowTitle('Trader Pro')
+        self.setMinimumSize(800, 600)
+
         # 按钮
         editor_btn = QPushButton(qtawesome.icon('mdi.finance', color='gray', color_active='orange'), '我的策略')
         editor_btn.clicked.connect(lambda: self.tab.set_homepage('my_strategy'))
@@ -62,7 +63,7 @@ class MainWindow(QWidget):
         nav_lyt.addWidget(account_btn, alignment=Qt.AlignRight)
         nav_lyt.addWidget(data_manage_btn, alignment=Qt.AlignRight)
         nav_lyt.addWidget(configure_btn, alignment=Qt.AlignRight)
-        nav_lyt.addStretch()
+        nav_lyt.addStretch(1)
 
         main_lyt = QHBoxLayout(self)
         main_lyt.addLayout(nav_lyt)

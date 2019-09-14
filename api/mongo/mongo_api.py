@@ -4,9 +4,11 @@
 '''
 @Author: freemoses
 @Since: 2019-08-27 22:49:33
-@LastEditTime: 2019-09-10 07:00:29
+@LastEditTime: 2019-09-14 13:11:58
 @Description: MongoDB data service api
 '''
+
+from typing import Any
 
 from pymongo import ASCENDING, DESCENDING, MongoClient
 from pymongo.errors import ConnectionFailure
@@ -52,22 +54,23 @@ class MongoApi():
         return False
 
     # ------------------------------------------------------------------
-    def insert(self, db_name: str, collection_name: str, data):
+    def insert(self, db_name: str, collection_name: str, data: Any, index_key: str = 'datetime'):
         """
-        插入数据，data为具体数据(字典或列表类型)
+        插入数据，data为具体数据(字典或列表类型)，index_key为索引字段(默认为'datetime'字段)
         """
         assert isinstance(data, (dict, list)), "Can't insert %s data." % type(data)
 
         if self.db_client:
             cl = self.db_client[db_name][collection_name]
-            cl.ensure_index([('datetime', ASCENDING)], unique=True)
+            cl.ensure_index([(index_key, ASCENDING)], unique=True)
 
             try:
                 if isinstance(data, dict):
-                    cl.insert_one(data)
-                elif isinstance(data, list):
-                    cl.insert_many(data)
-                return True
+                    _id = cl.insert_one(data)
+                    return _id.inserted_id
+                if isinstance(data, list):
+                    _id = cl.insert_many(data)
+                    return _id.inserted_ids
             except:
                 return False
         return False
