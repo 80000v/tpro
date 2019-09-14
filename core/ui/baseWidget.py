@@ -4,7 +4,7 @@
 '''
 @Author: freemoses
 @Since: 2019-09-03 21:38:25
-@LastEditTime: 2019-09-14 13:36:08
+@LastEditTime: 2019-09-14 22:49:16
 @Description: 自定义Qt基础组件
 '''
 
@@ -261,6 +261,9 @@ class BaseTable(QtWidgets.QTableWidget):
         self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.setEditTriggers(self.NoEditTriggers)
 
+        self.setMouseTracking(True)
+        self.cellEntered[int, int].connect(self.cell_entered)
+
     def set_datas(self, datas: list):
         """
         Set table data, param 'datas' format is '[{}, {}, ...]'
@@ -310,12 +313,6 @@ class BaseTable(QtWidgets.QTableWidget):
         self._datas.append(data)
         self.setSortingEnabled(True)  # 重新打开排序
 
-    def operate_row(self, point: QtCore.QPoint, opt: str):
-        """
-        Perform specified actions, implemented by subclass inheritance
-        """
-        raise NotImplementedError
-
     def update_old_row(self, data):
         """
         Update an old row in table
@@ -351,6 +348,30 @@ class BaseTable(QtWidgets.QTableWidget):
                     else:
                         row_data.append('')
                 writer.writerow(row_data)
+
+    @QtCore.pyqtSlot(int, int)
+    def cell_entered(self, row: int, _):
+        """
+        Handling mouse move-in cell events, select the current row
+        """
+        self.selectRow(row)
+
+    def mousePressEvent(self, e: QtGui.QMouseEvent):
+        """
+        Handling mouse click events, open strategy edit window
+        """
+        # TODO: 完成打开策略编辑窗口的操作
+        try:
+            _strategy = self._datas[self.indexAt(e.pos()).row()]
+            print('打开 {} 策略'.format(_strategy['name']))
+        except IndexError:
+            pass
+
+    def operate_row(self, point: QtCore.QPoint, opt: str):
+        """
+        Perform specified actions, implemented after subclass inheritance
+        """
+        raise NotImplementedError
 
 
 class StrategyTable(BaseTable):
@@ -885,7 +906,6 @@ class NewRealTrading(BaseDialog):
         """
         Check real-trading environment configuration
         """
-        pass
 
 
 class NewAccount(BaseDialog):
@@ -907,7 +927,6 @@ class NewAccount(BaseDialog):
         """
         Check account configuration
         """
-        pass
 
 
 class RenameDialog(BaseDialog):
