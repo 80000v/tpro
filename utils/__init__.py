@@ -4,7 +4,7 @@
 '''
 @Author: freemoses
 @Since: 2019-08-23 14:07:36
-@LastEditTime: 2019-09-19 08:15:15
+@LastEditTime: 2019-09-19 23:39:38
 @Description: the folder for general functions
 '''
 
@@ -116,10 +116,12 @@ def get_dict_value(target_dict: dict, keyword: str):
     for key, value in target_dict.items():
         if key == keyword:
             _value = value
-        elif isinstance(value, dict):
+            return _value
+        if isinstance(value, dict):
             _value = get_dict_value(value, keyword)
-    if _value is None:
-        return ''
+        if _value:
+            break
+
     return _value
 
 
