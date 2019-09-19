@@ -4,7 +4,7 @@
 '''
 @Author: freemoses
 @Since: 2019-09-07 18:00:30
-@LastEditTime: 2019-09-14 13:41:05
+@LastEditTime: 2019-09-18 13:09:13
 @Description: 自定义系统功能模块
 '''
 
@@ -16,17 +16,7 @@ from PyQt5 import QtCore, QtWidgets
 from tpro.api.mongo import MongoApi
 from tpro.core.ui.baseWidget import (AccountTable, BacktestTable, PaperTradingTable, RealTradingTable, StrategyTable,
                                      NewStrategy, NewRealTrading, NewAccount)
-
-
-########################################################################
-class Editor(QtWidgets.QWidget):
-    """
-    编辑器组件
-    """
-    def __init__(self, parent: Any = None):
-        super(Editor, self).__init__(parent)
-        self.parent = parent
-        self._env = None
+from tpro.core.ui.editor import Editor
 
 
 ########################################################################
@@ -113,7 +103,7 @@ class TableFrame(QtWidgets.QFrame):
     """
     自定义表格页面，包含搜索、新建、删除功能
     """
-    open_tab_signal = QtCore.pyqtSignal(str, str, dict)
+    open_tab_signal = QtCore.pyqtSignal(dict)
 
     dialog_type = {'my_strategy': NewStrategy, 'real_trading': NewRealTrading, 'funds_account': NewAccount}
 
@@ -129,7 +119,7 @@ class TableFrame(QtWidgets.QFrame):
 
     def init_ui(self):
         """
-        初始化用户界面
+        Initialize user interface
         """
         self.setStyleSheet(
             "QHeaderView::section{background-color: transparent;font-size: 13px;font-weight: bold;padding-left: 4px;border: 0px;}"
@@ -210,16 +200,16 @@ class TableFrame(QtWidgets.QFrame):
         """
         self._table.save_csv()
 
-    def perform_operate(self, data: dict, flt: dict, opt: str):
+    def perform_operate(self, collection: str, opt: str, flt: dict, data: dict = None):
         """
         Save operate result
         """
         if opt == 'update':
-            self._db.update('tpro', self._source, data, flt)
+            self._db.update('tpro', collection, data, flt)
             return
 
         if opt == 'delete':
-            self._db.delete('tpro', self._source, flt)
+            self._db.delete('tpro', collection, flt)
             return
 
 
@@ -229,14 +219,13 @@ class TabWidget(QtWidgets.QTabWidget):
     """
     def __init__(self, parent: Any = None):
         super(TabWidget, self).__init__(parent)
-        self._home_wgt = None  # 首页标识
-        self._tabs_dict = {}  # 选项卡字典
+        self._tabs = [None]        # 已开选项卡列表
 
         self.init_ui()
 
     def init_ui(self):
         """
-        初始化用户界面
+        Initialize user interface
         """
         self.setTabsClosable(True)
         self.setElideMode(QtCore.Qt.ElideRight)
@@ -250,27 +239,27 @@ class TabWidget(QtWidgets.QTabWidget):
         """
         根据标识符生成首页功能模块，默认首页显示'我的策略'
         """
-        if self._home_wgt is None:
-            self._home_wgt = TableFrame()
-            self._home_wgt.open_tab_signal.connect(self.open_tab)
+        if self._tabs[0] is None:
+            self._tabs[0] = TableFrame()
+            self._tabs[0].open_tab_signal.connect(self.open_tab)
 
             _widget = QtWidgets.QWidget()
             _lyt = QtWidgets.QHBoxLayout(_widget)
             _lyt.setContentsMargins(0, 0, 0, 0)
-            _lyt.addWidget(self._home_wgt)
+            _lyt.addWidget(self._tabs[0])
 
             self.insertTab(0, _widget, '我的策略')
             self.tabBar().setTabButton(0, QtWidgets.QTabBar.RightSide, None)
             self.setCurrentIndex(0)
             return
 
-        if self._home_wgt.source == flag:
+        if self._tabs[0].source == flag:
             self.setCurrentIndex(0)
             return
 
-        if flag in Tab_Type and isinstance(self._home_wgt, TableFrame):
+        if flag in Tab_Type and isinstance(self._tabs[0], TableFrame):
             self.setTabText(0, Tab_Type[flag][0])
-            self._home_wgt.source = flag
+            self._tabs[0].source = flag
             self.setCurrentIndex(0)
             return
 
@@ -288,34 +277,48 @@ class TabWidget(QtWidgets.QTabWidget):
             raise NotImplementedError
 
         self.setTabText(0, _title)
-        self.widget(0).layout().removeWidget(self._home_wgt)
+        self.widget(0).layout().removeWidget(self._tabs[0])
         self.widget(0).layout().addWidget(_widget)
         self.setCurrentIndex(0)
-        self._home_wgt = _widget
+        self._tabs[0] = _widget
 
-    def open_tab(self, _id: str, flag: str, datas: dict = None):
+    def open_tab(self, _document: dict):
         """
-        根据文档'_id'打开或创建选项页
+        根据文档数据打开或创建选项页
         """
-        if _id in self._tabs_dict:
-            self.setCurrentIndex(self._tabs_dict[_id][0])
+        _id = _document['_id']
+        _name = _document['name']
+
+        if _id in self._tabs:
+            self.setCurrentIndex(self._tabs.index(_id))
             return
 
-        assert flag in Tab_Type, 'Invaild tab type - {}!'.format(flag)
-
-        _title, _, _widget = Tab_Type[flag]
-        _widget = _widget(datas, self)
+        _title, _, _widget = Tab_Type[self._tabs[0].source]
+        _title = '-'.join([_title, _name])
+        _widget = _widget(_document, self)
+        _widget.operate_signal.connect(self._tabs[0].perform_operate)
 
         idx = self.addTab(_widget, _title)
         self.setTabToolTip(idx, _title)
+        self.setCurrentIndex(idx)
 
-        self._tabs_dict[_id] = [idx, _widget]
+        self._tabs.append(_id)
 
     def close_tab(self, idx: int):
         """
         关闭选项页时调用，当选项页为策略编辑页面时检测是否已保存
         """
-        _id = [x for x in self._tabs_dict if self._tabs_dict[x][0] == idx]
+        _wgt = self.widget(idx)
 
-        if _id:
-            del self._tabs_dict[_id.pop()]
+        if isinstance(_wgt, Editor):
+            if not _wgt.ok_to_continue:
+                reply = QtWidgets.QMessageBox.question(self, '策略代码未保存', '是否保存当前策略代码？',
+                                                       QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                                                       QtWidgets.QMessageBox.Yes)
+                if reply == QtWidgets.QMessageBox.Yes:
+                    _wgt.save_code()
+
+            _wgt.gather_config()
+
+        self._tabs.pop(idx)
+        self.removeTab(idx)

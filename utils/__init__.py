@@ -4,13 +4,14 @@
 '''
 @Author: freemoses
 @Since: 2019-08-23 14:07:36
-@LastEditTime: 2019-09-10 06:45:40
+@LastEditTime: 2019-09-19 08:15:15
 @Description: the folder for general functions
 '''
 
 import json
 import os
 import traceback
+from typing import Any
 
 from PyQt5.QtGui import QFont, QIcon
 
@@ -104,3 +105,33 @@ def get_temp_file(file_name: str):
         os.makedirs(temp_path)
 
     return os.path.join(temp_path, file_name)
+
+
+# ----------------------------------------------------------------------
+def get_dict_value(target_dict: dict, keyword: str):
+    """
+    Get keyword's value from target dictionary with recursive algorithm
+    """
+    _value = None
+    for key, value in target_dict.items():
+        if key == keyword:
+            _value = value
+        elif isinstance(value, dict):
+            _value = get_dict_value(value, keyword)
+    if _value is None:
+        return ''
+    return _value
+
+
+# ----------------------------------------------------------------------
+def set_dict_value(target_dict: dict, keyword: str, value: Any):
+    """
+    Set keyword's value in target dictionary with recursive algorithm
+    """
+    for k, v in target_dict.items():
+        if k == keyword:
+            target_dict[k] = value
+            return
+        if isinstance(v, dict):
+            set_dict_value(v, keyword, value)
+    return

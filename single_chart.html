@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html style="height: 100%;">
+<head>
+    <meta charset="UTF-8">
+    <title>Echarts</title>
+    <script type="text/javascript" src="echarts.min.js"></script>
+</head>
+<body style="height: 100%; margin: 0">
+    <div id="main" style="height: 100%; margin: 0;"></div>
+    <script type="text/javascript">
+        var myChart = echarts.init(document.getElementById("main"), "dark", {renderer: 'canvas'});
+
+        myChart.setOption({
+            grid:{
+                top:"30px",
+                left:"20px",
+                right:"40px",
+                bottom:"30px",
+                width:"auto", //图例宽度
+                height:"70%", //图例高度
+            },
+            backgroundColor: 'rgba(25, 25, 38, 0.95)',
+            tooltip: {
+                trigger: "axis",
+                extraCssText: 'box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);',
+                formatter: '{b}<br /><span style="color: rgb(250, 170, 0);margin-right: 3px;font-size: 20px;">•</span>{a0}:  {c0}%<br /><span style="color: rgb(60, 160, 210);margin-right: 3px;font-size: 20px;">•</span>{a1}:  {c1}%'
+            },
+            dataZoom: {
+                type: 'slider',
+                showDetail: false
+            },
+            xAxis: {
+                type: 'category',
+                boundaryGap : false,
+                axisLabel: {
+                    formatter: function(value) {
+                        var texts = value.split('-');
+                        var text = texts[1] + '-' + texts[2] + '\n' + texts[0];
+                        return text;
+                    },
+                    color: 'rgb(180, 180, 180)'
+                },
+                splitLine: {show: true},
+                data: []
+            },
+            yAxis: {
+                type: 'value',
+                position: 'right',
+                axisLabel: {color: 'rgb(180, 180, 180)', formatter: '{value} %'},
+                name: '策略收益'
+            },
+            series: [
+                {
+                    name: '我的策略收益',
+                    type: 'line',
+                    smooth: true,
+                    symbol: 'circle',
+                    lineStyle: {
+                        color: 'rgb(250, 170, 0)'
+                    },
+                    itemStyle: {
+                        color: 'rgb(250, 170, 0)',
+                    },
+                    data: []
+                },
+                {
+                    name: '基准策略收益',
+                    type: 'line',
+                    smooth:true,
+                    symbol: 'circle',
+                    lineStyle: {
+                        color: 'rgb(60, 160, 210)'
+                    },
+                    itemStyle: {
+                        color: 'rgb(60, 160, 210)',
+                    },
+                    areaStyle: {opacity: 0.1},
+                    data: []
+                }
+            ]
+        });
+        window.onresize = myChart.resize;
+    </script>
+</body>
+</html>

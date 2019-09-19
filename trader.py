@@ -4,7 +4,7 @@
 '''
 @Author: freemoses
 @Since: 2019-08-23 13:47:06
-@LastEditTime: 2019-09-14 13:44:06
+@LastEditTime: 2019-09-18 19:51:02
 @Description: Main entry for Trader Pro system
 '''
 
@@ -87,7 +87,7 @@ if __name__ == "__main__":
 
     # 设置外观样式
     try:
-        tApp.setStyleSheet(theme.load_stylesheet('custom.qss'))
+        tApp.setStyleSheet(theme.load_stylesheet('dark'))
     except:
         pass
 

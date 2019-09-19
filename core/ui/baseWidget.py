@@ -4,22 +4,27 @@
 '''
 @Author: freemoses
 @Since: 2019-09-03 21:38:25
-@LastEditTime: 2019-09-14 22:49:16
+@LastEditTime: 2019-09-19 22:13:44
 @Description: 自定义Qt基础组件
 '''
 
-import os
 import csv
 import datetime
+import os
 from typing import Any
 
+import pandas as pd
 import qtawesome
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWebEngineWidgets import QWebEngineView
 
-from tpro.utils import Icon_Map
+from tpro.utils import Icon_Map, load_json, set_dict_value
+from tpro.utils.conversion import Backtest_Report, Frequency, translate_field
 
 COLOR_LONG = QtGui.QColor("red")
 COLOR_SHORT = QtGui.QColor("green")
+
+Level_Color = {'INFO': '#00FF00', 'WARN': '#FFAA00', 'DEBUG': '#FF00FF', 'ERROR': '#FF0000'}
 
 
 ########################################################################
@@ -75,6 +80,22 @@ class PnlCell(BaseCell):
             self.setForeground(COLOR_SHORT)
         else:
             self.setForeground(COLOR_LONG)
+
+
+class PctCell(BaseCell):
+    """
+    Cell used for showing percent data
+    """
+    def set_content(self, content: float, data: Any):
+        content = str(content * 100) + '%'
+
+        if content.startswith("-"):
+            self.setForeground(COLOR_SHORT)
+        else:
+            self.setBackground(COLOR_LONG)
+
+        self.setText(content)
+        self._data = data
 
 
 class TimeCell(BaseCell):
@@ -263,6 +284,7 @@ class BaseTable(QtWidgets.QTableWidget):
 
         self.setMouseTracking(True)
         self.cellEntered[int, int].connect(self.cell_entered)
+        self.cellClicked[int, int].connect(self.cell_clicked)
 
     def set_datas(self, datas: list):
         """
@@ -356,14 +378,14 @@ class BaseTable(QtWidgets.QTableWidget):
         """
         self.selectRow(row)
 
-    def mousePressEvent(self, e: QtGui.QMouseEvent):
+    @QtCore.pyqtSlot(int, int)
+    def cell_clicked(self, row: int, _):
         """
-        Handling mouse click events, open strategy edit window
+        Handling mouse click cell events, open strategy edit window
         """
-        # TODO: 完成打开策略编辑窗口的操作
         try:
-            _strategy = self._datas[self.indexAt(e.pos()).row()]
-            print('打开 {} 策略'.format(_strategy['name']))
+            _document = self._datas[row]
+            self.parent.open_tab_signal.emit(_document)
         except IndexError:
             pass
 
@@ -432,12 +454,12 @@ class StrategyTable(BaseTable):
             _data['name'] = new_data.get('name', '')
             self._datas[self._opt_row] = _data
 
-            self.parent.perform_operate(_data, {'_id': _data.pop('_id')}, 'update')
+            self.parent.perform_operate('my_strategy', 'update', {'_id': _data.pop('_id')}, _data)
             self.update_old_row(new_data)
 
     def delete(self, *_):
         _data = self._datas[self._opt_row]
-        self.parent.perform_operate({}, {'_id': _data.pop('_id')}, 'delete')
+        self.parent.perform_operate('my_strategy', 'delete', {'_id': _data.pop('_id')})
 
         self._datas.pop(self._opt_row)
         if self._datas:
@@ -496,7 +518,7 @@ class PaperTradingTable(BaseTable):
         },
         'total_income': {
             'display': '累计收益',
-            'cell': PnlCell,
+            'cell': PctCell,
             'update': False
         },
         'start_time': {
@@ -568,7 +590,7 @@ class RealTradingTable(BaseTable):
         },
         'total_income': {
             'display': '累计收益',
-            'cell': PnlCell,
+            'cell': PctCell,
             'update': False
         },
         'start_time': {
@@ -687,7 +709,7 @@ class BacktestTable(BaseTable):
         },
         'income': {
             'display': '收益',
-            'cell': PnlCell,
+            'cell': PctCell,
             'update': False
         },
         'comment': {
@@ -713,6 +735,87 @@ class BacktestTable(BaseTable):
 
 
 ########################################################################
+class LineTable(QtWidgets.QFrame):
+    """
+    Single line Table frame
+    """
+    def __init__(self, datas: dict = None, style: str = 'normal', parent: Any = None):
+        super(LineTable, self).__init__(parent)
+        self._style = style
+        self._headers = []
+        self._data = []
+
+        if datas:
+            self.set_datas(datas)
+
+    def set_datas(self, datas: dict):
+        """
+        Set table headers and datas
+        """
+        if isinstance(datas, dict):
+            for k, v in datas.items():
+                self._headers.append(translate_field(Backtest_Report, k))
+                self._data.append(str(v))
+        elif isinstance(datas, list):
+            self._headers = [translate_field(Backtest_Report, k) for k in datas]
+            self._data = ['--' for i in range(len(datas))]
+        else:
+            return
+
+        self.init_ui()
+
+    def init_ui(self):
+        """
+        Initialize linetable ui
+        """
+        def build_widget(field: str, content: str):
+            _title = QtWidgets.QLabel(field)
+            _title.setWordWrap(True)
+            _title.setAlignment(QtCore.Qt.AlignCenter)
+
+            _content = QtWidgets.QLabel('<b>%s</b>' % content)
+            _content.setWordWrap(True)
+            _content.setAlignment(QtCore.Qt.AlignCenter)
+
+            return _title, _content
+
+        lyt = QtWidgets.QGridLayout(self)
+        lyt.setSpacing(10)
+
+        for i in range(len(self._headers)):
+            _title, _content = build_widget(self._headers[i], self._data[i])
+            _title.setObjectName('title_%s' % i)
+            _content.setObjectName(_title.text())
+
+            if self._style == 'normal':
+                lyt.addWidget(_title, 0, i)
+                lyt.addWidget(_content, 1, i)
+            else:
+                lyt.addWidget(_content, 0, i)
+                lyt.addWidget(_title, 1, i)
+
+    def set_columns_color(self, colors: dict):
+        """
+        Set the specified header color
+        param:
+            colors -> {*(num: QColor)}
+        """
+        assert isinstance(colors, dict), "Invaild parameter format for color dict"
+
+        for k, v in colors.items():
+            _wgt = self.findChild(QtWidgets.QLabel, 'title_%d' % k)
+            _wgt.setText('<font style = "color: %s">%s</font>' % (v, _wgt.text()))
+
+    def clear(self):
+        """
+        Clear table content, not include table headers
+        """
+        for child in self._headers:
+            _wgt = self.findChild(QtWidgets.QLabel, child)
+            _wgt.setText('--')
+
+
+########################################################################
 class TipLabel(QtWidgets.QLabel):
     """
     Label with icon for tooltip
@@ -727,20 +830,210 @@ class TipLabel(QtWidgets.QLabel):
 
 
 ########################################################################
+class SingleEcharts(QWebEngineView):
+    """
+    Simple feedback chart
+    """
+    def __init__(self, template: str, parent: Any = None):
+        super(SingleEcharts, self).__init__(parent)
+        model = QtCore.QUrl(QtCore.QFileInfo(template).absoluteFilePath())
+        self.load(model)
+
+    # ------------------------------------------------------------------
+    def inti_chart(self, start_date: datetime.datetime, end_date: datetime.datetime):
+        """
+        Initialize chart ui
+        """
+        if start_date >= end_date:
+            return
+
+        date_range = [x.strftime('%Y-%m-%d') for x in pd.date_range(start_date, end_date)]
+
+        self.page().runJavaScript('''
+                myChart.showLoading();
+                myChart.setOption({
+                    xAxis: {
+                        data: %s
+                    },
+                    series: [
+                        {name: '我的策略收益', data: []},
+                        {name: '基准策略收益', data: []}
+                    ]
+                })
+            ''' % date_range)
+
+    # ------------------------------------------------------------------
+    def set_datas(self, df: pd.DataFrame):
+        """
+        Setting data for chart
+        """
+        if df is None or df.empty:
+            return
+
+        dates = [x.strftime('%Y-%m-%d') for x in df.index]
+        mine = list(df.mine_rates)
+        base = list(df.base_rates)
+
+        self.page().runJavaScript('''
+                myChart.hideLoading();
+                myChart.setOption({
+                        xAxis: {
+                            data: %s
+                        },
+                        series: [
+                            {name: '我的策略收益', data: %s},
+                            {name: '基准策略收益', data: %s}
+                        ]
+                    })
+            ''' % (dates, mine, base))
+
+
+########################################################################
+class LogView(QtWidgets.QFrame):
+    """
+    Monitor for log, include filter and save function
+    """
+    def __init__(self, parent: Any = None):
+        super(LogView, self).__init__(parent)
+        self._content = []      # 日志内容，item为字典格式{'time', 'level', 'msg'}
+        self._filter = set()    # 需过滤的日志级别'INFO'、'WARN'、'DEBUG'、'ERROR'
+        self._reverse = False   # 是否倒序显示
+
+        # self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.init_ui()
+
+    def init_ui(self):
+        """
+        Initialize monitor ui
+        """
+        checkbox_info = QtWidgets.QCheckBox('INFO')
+        checkbox_info.setChecked(True)
+        checkbox_info.stateChanged.connect(self.change_filter)
+
+        checkbox_warn = QtWidgets.QCheckBox('WARN')
+        checkbox_warn.setChecked(True)
+        checkbox_warn.stateChanged.connect(self.change_filter)
+
+        checkbox_debug = QtWidgets.QCheckBox('DEBUG')
+        checkbox_debug.setChecked(True)
+        checkbox_debug.stateChanged.connect(self.change_filter)
+
+        checkbox_error = QtWidgets.QCheckBox('ERROR')
+        checkbox_error.setChecked(True)
+        checkbox_error.stateChanged.connect(self.change_filter)
+
+        checkbox_reverse = QtWidgets.QCheckBox('倒序')
+        checkbox_reverse.stateChanged.connect(self.change_sort)
+
+        btn_save = QtWidgets.QPushButton('保存日志')
+        btn_save.clicked.connect(self.save_log)
+
+        self.monitor = QtWidgets.QTextEdit()
+        self.monitor.setContentsMargins(0, 0, 0, 0)
+        self.monitor.setReadOnly(True)
+        self.monitor.setContextMenuPolicy(QtCore.Qt.NoContextMenu)
+
+        lyt_contral = QtWidgets.QHBoxLayout()
+        lyt_contral.addWidget(checkbox_info)
+        lyt_contral.addWidget(checkbox_warn)
+        lyt_contral.addWidget(checkbox_debug)
+        lyt_contral.addWidget(checkbox_error)
+        lyt_contral.addStretch(1)
+        lyt_contral.addWidget(checkbox_reverse, alignment=QtCore.Qt.AlignRight)
+        lyt_contral.addWidget(btn_save, alignment=QtCore.Qt.AlignRight)
+
+        lyt = QtWidgets.QVBoxLayout(self)
+        lyt.addLayout(lyt_contral)
+        lyt.addWidget(self.monitor)
+
+    def add_log(self, msg: dict):
+        msg['datetime'] = format(msg['datetime'], '%Y-%m-%d %H:%M:%S')
+        msg['color'] = Level_Color.get(msg['level'], '#FFFFFF')
+
+        _log = '<font color=#3CA0D2>{datetime}</font> <font color={color}>{level}</font> {content}'.format(**msg)
+
+        if self._reverse:
+            self._content.insert(0, {msg['level']: _log})
+        else:
+            self._content.append({msg['level']: _log})
+
+        self.show_log({msg['level']: _log})
+
+    def show_log(self, log: dict):
+        for k, v in log.items():
+            if k in self._filter:
+                return
+
+            self.monitor.insertHtml(v + '<br>')
+
+            if self._reverse:
+                self.monitor.moveCursor(QtGui.QTextCursor.Start)
+            else:
+                self.monitor.moveCursor(QtGui.QTextCursor.End)
+
+    def _refresh(self):
+        """
+        Refresh monitor view
+        """
+        self.monitor.clear()
+
+        for _log in self._content:
+            self.show_log(_log)
+
+    def change_filter(self, state: bool):
+        """
+        Change the filter conditions
+        """
+        if state == QtCore.Qt.Checked:
+            self._filter.remove(self.sender().text())
+        else:
+            self._filter.add(self.sender().text())
+
+        self._refresh()
+
+    def change_sort(self, state: bool):
+        """
+        Reverse monitor view
+        """
+        self._reverse = state
+        self._content.reverse()
+
+        self._refresh()
+
+    def save_log(self):
+        savePath = QtCore.QProcessEnvironment.systemEnvironment().value('HOMEPATH') + '\\Desktop\\'
+        fname, ok = QtWidgets.QFileDialog.getSaveFileName(self, "保存日志", savePath, "Text Files (*.txt)")
+
+        if fname and ok:
+            with open(fname, 'w') as f:
+                f.write(self.monitor.toPlainText())
+
+    def clear(self):
+        """
+        Restore the initial state for monitor
+        """
+        self.monitor.clear()
+        self._content.clear()
+        self._filter.clear()
+
+
+########################################################################
 class BuddyFrame(QtWidgets.QFrame):
     """
     Combined widgets, it can include a label and a Qt functional widget
     """
     def __init__(self, label: str, widget: Any, tip: str = None, parent: Any = None):
         super(BuddyFrame, self).__init__(parent)
-        self._lbl = TipLabel(label, minimumWidth=160)
-        self._wgt = widget(minimumWidth=160)
+        self.setMaximumWidth(160)
+
+        self._lbl = TipLabel(label)
+        self._wgt = widget()
 
         if tip:
             self._lbl.addToolTip(tip)
 
         lyt = QtWidgets.QVBoxLayout(self)
-        lyt.setContentsMargins(2, 0, 0, 0)
+        lyt.setContentsMargins(0, 0, 0, 0)
         lyt.setSpacing(2)
 
         lyt.addWidget(self._lbl)
@@ -755,6 +1048,20 @@ class BuddyFrame(QtWidgets.QFrame):
 
 
 ########################################################################
+class DateEdit(QtWidgets.QDateEdit):
+    """
+    Custom DateEdit widget
+    """
+    def __init__(self, parent: Any = None):
+        super(DateEdit, self).__init__(parent)
+
+        self.setCalendarPopup(True)
+        self.setDisplayFormat('yyyy-MM-dd')
+        self.setInputMethodHints(QtCore.Qt.ImhDate)
+        self.setDateRange(QtCore.QDate(2000, 1, 1), QtCore.QDate.currentDate())
+
+
+########################################################################
 class BaseDialog(QtWidgets.QDialog):
     """
     Custom base QDialog widget
@@ -763,8 +1070,6 @@ class BaseDialog(QtWidgets.QDialog):
 
     def __init__(self, parent: Any = None):
         super(BaseDialog, self).__init__(parent)
-        self.parent = parent
-
         self.setModal(True)
         self.setWindowFlags(QtCore.Qt.FramelessWindowHint)
 
@@ -796,15 +1101,19 @@ class NewStrategy(BaseDialog):
         self.frequency = BuddyFrame('频率', QtWidgets.QComboBox)
         self.frequency.buddy.addItems(['每日', '分钟'])
 
-        self.initial_funds = BuddyFrame('初始资金', QtWidgets.QSpinBox)
-        self.initial_funds.buddy.setRange(100000, 99999999)
-        self.initial_funds.buddy.setValue(1000000)
+        self.stock_funds = BuddyFrame('股票资金', QtWidgets.QSpinBox)
+        self.stock_funds.buddy.setRange(100000, 99999999)
+        self.stock_funds.buddy.setValue(1000000)
+
+        self.future_funds = BuddyFrame('期货资金', QtWidgets.QSpinBox)
+        self.future_funds.buddy.setRange(100000, 99999999)
+        self.future_funds.buddy.setValue(1000000)
 
         self.stock_checker = QtWidgets.QCheckBox('股票')
-        self.stock_checker.stateChanged.connect(self._check_state)
+        self.stock_checker.setChecked(True)
 
         self.future_checker = QtWidgets.QCheckBox('期货')
-        self.future_checker.stateChanged.connect(self._check_state)
+        self.future_checker.setChecked(True)
 
         self.btn_ok = QtWidgets.QPushButton('确定')
         self.btn_ok.clicked.connect(self.add)
@@ -814,8 +1123,12 @@ class NewStrategy(BaseDialog):
         _btn_cancel.clicked.connect(self.close)
 
         self.name.buddy.textChanged.connect(self._check_state)
-        self.stock_checker.setCheckState(QtCore.Qt.Checked)
-        self.future_checker.setCheckState(QtCore.Qt.Checked)
+
+        self.stock_checker.stateChanged.connect(self._check_state)
+        self.stock_checker.stateChanged.connect(self.stock_funds.setVisible)
+
+        self.future_checker.stateChanged.connect(self._check_state)
+        self.future_checker.stateChanged.connect(self.future_funds.setVisible)
 
         lyt = QtWidgets.QVBoxLayout(self)
         lyt.addWidget(QtWidgets.QLabel('新建策略'))
@@ -823,7 +1136,9 @@ class NewStrategy(BaseDialog):
         _lyt_input = QtWidgets.QHBoxLayout()
         _lyt_input.addWidget(self.name)
         _lyt_input.addWidget(self.frequency)
-        _lyt_input.addWidget(self.initial_funds)
+        _lyt_input.addWidget(self.stock_funds)
+        _lyt_input.addWidget(self.future_funds)
+        _lyt_input.addStretch(1)
         lyt.addLayout(_lyt_input)
 
         _lyt_checker = QtWidgets.QHBoxLayout()
@@ -853,25 +1168,28 @@ class NewStrategy(BaseDialog):
                     return f.read()
             return ''
 
-        d = {}
-
-        d['name'] = self.name.buddy.text()
-        d['frequency'] = self.frequency.buddy.currentText()
-        d['initial_funds'] = self.initial_funds.buddy.value()
-        d['mode'] = []
+        d = dict(
+            name=self.name.buddy.text(),
+            mode=[],
+            code='',
+            config=load_json('default.json'),
+            last_modify=datetime.datetime.now().replace(microsecond=0),
+            operate=['paper', 'rename', 'delete']
+        )
 
         if self.stock_checker.isChecked():
             d['mode'].append('stock')
+            set_dict_value(d, 'stock', self.stock_funds.buddy.value())
         if self.future_checker.isChecked():
             d['mode'].append('future')
+            set_dict_value(d, 'future', self.future_funds.buddy.value())
 
         if ('stock' in d['mode']) and ('future' in d['mode']):
             d['code'] = _template()
         else:
             d['code'] = _template('TPL_Stock.py') if 'stock' in d['mode'] else _template('TPL_Future.py')
 
-        d['last_modify'] = datetime.datetime.now()
-        d['operate'] = ['paper', 'rename', 'delete']
+        set_dict_value(d, 'frequency', translate_field(Frequency, self.frequency.buddy.currentText()))
 
         self.ok_signal.emit(d, 'last_modify')
         self.close()
