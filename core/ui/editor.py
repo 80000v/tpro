@@ -3,7 +3,7 @@
 '''
 @Author: freemoses
 @Since: 2019-09-15 14:35:54
-@LastEditTime: 2019-09-19 22:16:54
+@LastEditTime: 2019-09-20 19:48:03
 @Description: The strategy edit and simple test
 '''
 
@@ -11,7 +11,7 @@ import qtawesome
 from PyQt5.Qsci import QsciLexerPython, QsciScintilla
 from PyQt5.QtCore import QDate, QObject, Qt, pyqtSignal, QPropertyAnimation, QPoint, QAbstractAnimation, QEasingCurve
 from PyQt5.QtGui import QColor, QDoubleValidator, QFont, QIntValidator
-from PyQt5.QtWidgets import (QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
+from PyQt5.QtWidgets import (QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QLineEdit,
                              QPushButton, QSplitter, QVBoxLayout, QWidget)
 
 from tpro.core.ui.baseWidget import (BuddyFrame, DateEdit, LineTable, LogView, SingleEcharts)
@@ -258,7 +258,7 @@ class Editor(QWidget):
         lyt.addWidget(end_date)
 
         if 'stock' in self._document['mode']:
-            stock_currency = QLabel('<font style = "font-size: 9px; color: #FF8B00>股票￥</font>')
+            stock_currency = QLabel('<font style = "font-size: 13px; color: #FF8B00">股票￥</font>')
 
             stock_funds = QLineEdit(maximumWidth=90)
             stock_funds.setText(str(get_dict_value(_config, 'stock')))
@@ -269,7 +269,7 @@ class Editor(QWidget):
             lyt.addWidget(stock_funds)
 
         if 'future' in self._document['mode']:
-            future_currency = QLabel('<font style = "font-size: 9px; color: #008BFF>期货￥</font>')
+            future_currency = QLabel('<font style = "font-size: 14px; color: #008BFF">期货￥</font>')
 
             future_funds = QLineEdit(maximumWidth=90)
             future_funds.setText(str(get_dict_value(_config, 'future')))
@@ -277,7 +277,7 @@ class Editor(QWidget):
             future_funds.editingFinished.connect(self._future_funds_changed)
 
             lyt.addWidget(future_currency)
-            lyt.addWidget(self.future_funds)
+            lyt.addWidget(future_funds)
 
         frequency = QComboBox(maximumWidth=20)
         frequency.addItems(['每日', '分钟'])
@@ -297,13 +297,15 @@ class Editor(QWidget):
         init extra-options frame
         """
         frm = QFrame()
-        lyt = QGridLayout(frm)
+        lyt = QVBoxLayout(frm)
+
+        _lyt_1 = QHBoxLayout()
 
         benchmark = BuddyFrame('基准合约', QLineEdit)
         benchmark.buddy.setText(get_dict_value(_config, 'benchmark'))
         benchmark.buddy.editingFinished.connect(self._benchmark_changed)
 
-        lyt.addWidget(benchmark, 0, 0, 1, 3)
+        _lyt_1.addWidget(benchmark, alignment=Qt.AlignLeft)
 
         commission_multiplier = BuddyFrame(
             '佣金倍率', QLineEdit, '实际佣金是基础佣金乘以佣金倍率之后的结果。\n \
@@ -312,7 +314,7 @@ class Editor(QWidget):
         commission_multiplier.buddy.setValidator(QDoubleValidator())
         commission_multiplier.buddy.editingFinished.connect(self._commission_changed)
 
-        lyt.addWidget(commission_multiplier, 0, 3, 1, 3)
+        _lyt_1.addWidget(commission_multiplier, alignment=Qt.AlignLeft)
 
         if 'future' in self._document['mode']:
             margin_multiplier = BuddyFrame(
@@ -322,13 +324,16 @@ class Editor(QWidget):
             margin_multiplier.buddy.setValidator(QDoubleValidator())
             margin_multiplier.buddy.editingFinished.connect(self._margin_changed)
 
-            lyt.addWidget(margin_multiplier, 0, 6, 1, 3)
+            _lyt_1.addWidget(margin_multiplier, alignment=Qt.AlignLeft)
+
+        _lyt_2 = QHBoxLayout()
 
         matching_type = BuddyFrame('撮合方式', QComboBox)
         matching_type.buddy.addItem('当前bar收盘')
         matching_type.buddy.currentTextChanged.connect(self._matching_type_changed)
+        matching_type.setObjectName('matching_type')
 
-        lyt.addWidget(matching_type, 1, 0, 1, 2)
+        _lyt_2.addWidget(matching_type, alignment=Qt.AlignLeft)
 
         slippage_model = BuddyFrame('滑点类型', QComboBox)
         slippage_model.buddy.addItems(['百分比', '跳/手'])
@@ -336,7 +341,7 @@ class Editor(QWidget):
         slippage_model.buddy.setCurrentText(
             translate_field(Slippape_Model, get_dict_value(_config, 'slippage_model')))
 
-        lyt.addWidget(slippage_model, 1, 2, 1, 2)
+        _lyt_2.addWidget(slippage_model, alignment=Qt.AlignLeft)
 
         slippage = BuddyFrame(
             '滑点', QDoubleSpinBox, '滑点类型为百分比时，0.2代表20%当前价；为跳/手时，2代表每手加两跳价格')
@@ -344,49 +349,60 @@ class Editor(QWidget):
         slippage.buddy.valueChanged[float].connect(self._slippage_changed)
         slippage.setObjectName('slippage')
 
-        lyt.addWidget(slippage, 1, 4, 1, 2)
+        _lyt_2.addWidget(slippage, alignment=Qt.AlignLeft)
+
+        _lyt_3 = QHBoxLayout()
 
         volume_limit = QCheckBox(' '.join(['限制成交量', chr(0xf059)]))
-        volume_limit.setFont(qtawesome.font('fa', 12))
+        volume_limit.setFixedHeight(60)
+        volume_limit.setFont(qtawesome.font('fa', 15))
         volume_limit.setToolTip('如果开启，则策略发单成交量不能超过bar成交量的一定比例。\n例如0.2代表不能超过bar成交量的20%。')
         volume_limit.setChecked(get_dict_value(_config, 'volume_limit'))
         volume_limit.stateChanged.connect(self._volume_limit_changed)
 
-        lyt.addWidget(volume_limit, 2, 0, 1, 2)
+        _lyt_3.addWidget(volume_limit, alignment=Qt.AlignLeft)
 
         volume_percent = BuddyFrame('成交量比例', QDoubleSpinBox)
         volume_percent.buddy.setRange(0, 1)
         volume_percent.buddy.setSingleStep(0.01)
         volume_percent.buddy.setValue(get_dict_value(_config, 'volume_percent'))
         volume_percent.buddy.valueChanged[float].connect(self._volume_percent_changed)
-        volume_percent.setVisible(False)
+        volume_percent.setVisible(volume_limit.isChecked())
         volume_percent.setObjectName('volume_percent')
 
         volume_limit.stateChanged.connect(volume_percent.setVisible)
 
-        lyt.addWidget(volume_percent, 2, 3, 1, 2)
+        _lyt_3.addWidget(volume_percent, alignment=Qt.AlignLeft)
+
+        _lyt_4 = QHBoxLayout()
 
         profiler = QCheckBox(' '.join(['性能分析', chr(0xf059)]))
-        profiler.setFont(qtawesome.font('fa', 12))
+        profiler.setFont(qtawesome.font('fa', 15))
         profiler.setToolTip('性能分析用于展示策略运行时的性能状况，通常用于优化策略的执行效率。\n开启这一功能会影响策略的执行效率。')
         profiler.setChecked(get_dict_value(_config, 'enable_profiler'))
         profiler.stateChanged.connect(self._profiler_changed)
 
-        lyt.addWidget(profiler, 4, 0, 1, 2)
+        _lyt_4.addWidget(profiler, alignment=Qt.AlignLeft)
 
-        short_sale = QCheckBox('股票卖空')
-        short_sale.setChecked(get_dict_value(_config, 'validate_stock_position'))
-        short_sale.stateChanged.connect(self._short_sale_changed)
+        if 'stock' in self._document['mode']:
+            short_sale = QCheckBox('股票卖空')
+            short_sale.setChecked(get_dict_value(_config, 'validate_stock_position'))
+            short_sale.stateChanged.connect(self._short_sale_changed)
 
-        lyt.addWidget(short_sale, 4, 3, 1, 2)
+            _lyt_4.addWidget(short_sale, alignment=Qt.AlignLeft)
 
         reinvestment = QCheckBox(' '.join(['分红再投资', chr(0xf059)]))
-        reinvestment.setFont(qtawesome.font('fa', 12))
+        reinvestment.setFont(qtawesome.font('fa', 15))
         reinvestment.setToolTip('勾选后，基金分红将按照当日净值折算成基金份额。')
         reinvestment.setChecked(get_dict_value(_config, 'dividend_reinvestment'))
         reinvestment.stateChanged.connect(self._reinvestment_changed)
 
-        lyt.addWidget(reinvestment, 4, 6, 1, 2)
+        _lyt_4.addWidget(reinvestment, alignment=Qt.AlignLeft)
+
+        lyt.addLayout(_lyt_1)
+        lyt.addLayout(_lyt_2)
+        lyt.addLayout(_lyt_3)
+        lyt.addLayout(_lyt_4)
 
         return frm
 
@@ -469,32 +485,30 @@ class Editor(QWidget):
         Change config option -- 'base/start_date'
         """
         set_dict_value(self._config, 'start_date', _date.toString(Qt.ISODate))
-        # self._config['base']['start_date'] = _date.toString(Qt.ISODate)
 
     def _end_date_changed(self, _date: QDate):
         """
         Change config option -- 'base/end_date'
         """
-        set_dict_value(self._config, 'start_date', _date.toString(Qt.ISODate))
-        # self._config['base']['end_date'] = _date.toString(Qt.ISODate)
+        set_dict_value(self._config, 'end_date', _date.toString(Qt.ISODate))
 
     def _stock_funds_changed(self):
         """
         Change config option -- 'base/accounts/stock'
         """
-        self._config['base']['accounts']['stock'] = int(self.sender().text())
+        set_dict_value(self._config, 'stock', int(self.sender().text()))
 
     def _future_funds_changed(self):
         """
         Change config option -- 'base/accounts/future'
         """
-        self._config['base']['accounts']['future'] = int(self.sender().text())
+        set_dict_value(self._config, 'future', int(self.sender().text()))
 
     def _frequency_changed(self, _idx: int):
         """
         Change config option -- 'base/frequency'
         """
-        self._config['base']['frequency'] = translate_field(Frequency, self.sender().currentText())
+        set_dict_value(self._config, 'frequency', translate_field(Frequency, self.sender().currentText()))
 
         _matching_type = self.findChild(BuddyFrame, 'matching_type')
         _matching_type.buddy.clear()
@@ -505,19 +519,18 @@ class Editor(QWidget):
         Change config option -- 'base/benchmark'
         """
         set_dict_value(self._config, 'benchmark', self.sender().text())
-        # self._config['base']['benchmark'] = self.sender().text()
 
     def _commission_changed(self):
         """
         Change config option -- 'mod/sys_simulation/commission_multiplier'
         """
-        self._config['mod']['sys_simulation']['commission_multiplier'] = float(self.sender().text())
+        set_dict_value(self._config, 'commission_multiplier', float(self.sender().text()))
 
     def _margin_changed(self):
         """
         Change config option -- 'base/margin_multiplier'
         """
-        self._config['base']['margin_multiplier'] = float(self.sender().text())
+        set_dict_value(self._config, 'margin_multiplier', float(self.sender().text()))
 
     def _matching_type_changed(self, _text: str):
         """
@@ -534,9 +547,11 @@ class Editor(QWidget):
         _slippage = self.findChild(BuddyFrame, 'slippage')
 
         if self.sender().currentIndex():
+            _slippage.buddy.setDecimals(0)
             _slippage.buddy.setRange(0, 10)
             _slippage.buddy.setSingleStep(1)
         else:
+            _slippage.buddy.setDecimals(2)
             _slippage.buddy.setRange(0, 1)
             _slippage.buddy.setSingleStep(0.01)
 
@@ -546,35 +561,34 @@ class Editor(QWidget):
         """
         Change config option -- 'mod/sys_simulation/slippage'
         """
-        self._config['mod']['sys_simulation']['slippage'] = _value
+        set_dict_value(self._config, 'slippage', _value)
 
     def _volume_limit_changed(self, _state: bool):
         """
         Change config option -- 'mod/sys_simulation/volume_limit'
         """
         set_dict_value(self._config, 'volume_limit', _state)
-        # self._config['mod']['sys_simulation']['volume_limit'] = _state
 
     def _volume_percent_changed(self, _value: float):
         """
         Change config option -- 'mod/sys_simulation/volume_percent'
         """
-        self._config['mod']['sys_simulation']['volume_percent'] = _value
+        set_dict_value(self._config, 'volume_percent', _value)
 
     def _profiler_changed(self, _state: bool):
         """
         Change config option -- 'extra/enable_profiler'
         """
-        self._config['extra']['enable_profiler'] = _state
+        set_dict_value(self._config, 'enable_profiler', _state)
 
     def _short_sale_changed(self, _state: bool):
         """
         Change config option -- 'mod/sys_risk/validate_stock_position'
         """
-        self._config['mod']['sys_risk']['validate_stock_position'] = _state
+        set_dict_value(self._config, 'validate_stock_position', _state)
 
     def _reinvestment_changed(self, _state: bool):
         """
         Change config option -- 'mod/sys_accounts/dividend_reinvestment'
         """
-        self._config['mod']['sys_accounts']['dividend_reinvestment'] = _state
+        set_dict_value(self._config, 'dividend_reinvestment', _state)
