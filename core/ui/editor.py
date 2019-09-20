@@ -3,7 +3,7 @@
 '''
 @Author: freemoses
 @Since: 2019-09-15 14:35:54
-@LastEditTime: 2019-09-20 19:48:03
+@LastEditTime: 2019-09-20 20:04:13
 @Description: The strategy edit and simple test
 '''
 
@@ -27,13 +27,13 @@ class QsciEditor(QsciScintilla):
         """
         Initialize editor
         """
-        self._font = QFont('Hack', 11)
-        self._font.setFixedPitch(True)
+        _font = QFont('Hack', 11)
+        _font.setFixedPitch(True)
 
         # base setting
         self.setUtf8(True)
-        self.setFont(self._font)
-        self.setMarginsFont(self._font)
+        self.setFont(_font)
+        self.setMarginsFont(_font)
 
         # set line number width
         self.setMarginWidth(0, str(self.lines()) + '0')
@@ -108,7 +108,7 @@ class QsciEditor(QsciScintilla):
 
         # set lexer
         _lexer = QsciLexerPython()
-        _lexer.setFont(self._font)
+        _lexer.setFont(_font)
         self.setLexer(_lexer)
 
         # high light code
@@ -146,6 +146,7 @@ class Editor(QWidget):
         self._document = _document
         self._config = _document['config']
 
+        self.editor = QsciEditor()
         self.ok_to_continue = True  # whether current tab can be close
 
         self.init_ui()
@@ -196,6 +197,7 @@ class Editor(QWidget):
         lbl_mode = QLabel(_mode)
 
         btn_history = QPushButton('历史回测')
+        btn_history.clicked.connect(lambda: self.parent.open_history(self._document['_id']))
 
         btn_compile = QPushButton('编译策略')
 
@@ -223,7 +225,6 @@ class Editor(QWidget):
         btn_save.clicked.connect(self.save_code)
         btn_save.setObjectName('btn_save')
 
-        self.editor = QsciEditor()
         self.editor.init()
         self.editor.setText(self._document['code'])
         self.editor.modificationChanged.connect(self._is_modified)

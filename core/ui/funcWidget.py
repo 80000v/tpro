@@ -4,18 +4,19 @@
 '''
 @Author: freemoses
 @Since: 2019-09-07 18:00:30
-@LastEditTime: 2019-09-18 13:09:13
+@LastEditTime: 2019-09-20 20:20:01
 @Description: 自定义系统功能模块
 '''
 
 from typing import Any
 
 import qtawesome
+from bson import ObjectId
 from PyQt5 import QtCore, QtWidgets
 
 from tpro.api.mongo import MongoApi
-from tpro.core.ui.baseWidget import (AccountTable, BacktestTable, PaperTradingTable, RealTradingTable, StrategyTable,
-                                     NewStrategy, NewRealTrading, NewAccount)
+from tpro.core.ui.baseWidget import (AccountTable, BacktestTable, NewAccount, NewRealTrading, NewStrategy,
+                                     PaperTradingTable, RealTradingTable, StrategyTable)
 from tpro.core.ui.editor import Editor
 
 
@@ -303,6 +304,16 @@ class TabWidget(QtWidgets.QTabWidget):
         self.setCurrentIndex(idx)
 
         self._tabs.append(_id)
+
+    def open_history(self, _id: ObjectId):
+        """
+        Open new tab with specify _id
+        """
+        if _id in self._tabs:
+            self.setCurrentIndex(self._tabs.index(_id))
+            return
+
+
 
     def close_tab(self, idx: int):
         """

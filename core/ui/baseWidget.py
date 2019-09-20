@@ -4,7 +4,7 @@
 '''
 @Author: freemoses
 @Since: 2019-09-03 21:38:25
-@LastEditTime: 2019-09-19 22:13:44
+@LastEditTime: 2019-09-20 20:17:20
 @Description: 自定义Qt基础组件
 '''
 
@@ -260,7 +260,6 @@ class BaseTable(QtWidgets.QTableWidget):
 
     def __init__(self, parent: Any = None):
         super(BaseTable, self).__init__(parent)
-        self.parent = parent
         self._datas = []
         self._opt_row = None
 
